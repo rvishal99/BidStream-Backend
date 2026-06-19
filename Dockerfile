@@ -23,6 +23,9 @@ COPY --from=builder /app/node_modules ./node_modules
 # Copy application code
 COPY . .
 
+# Create temp upload directory (gitignored, so not in repo)
+RUN mkdir -p /app/uploads
+
 # Expose port
 EXPOSE 3000
 
