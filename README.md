@@ -1,4 +1,4 @@
-# Auction Platform — Backend API
+# BidStream — An auction platform
 
 A production-ready RESTful backend for a real-time auction platform built with Node.js, Express, MongoDB, Redis, and Socket.io. Supports full auction lifecycle management, concurrent bid handling with distributed locking, async job queues, image uploads, and live event broadcasting.
 
@@ -6,11 +6,11 @@ A production-ready RESTful backend for a real-time auction platform built with N
 
 ## Table of Contents
 
+- [Getting Started](#getting-started)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
 - [Architecture Overview](#architecture-overview)
 - [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
 - [API Reference](#api-reference)
 - [Data Models](#data-models)
@@ -21,13 +21,52 @@ A production-ready RESTful backend for a real-time auction platform built with N
 
 ---
 
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- MongoDB (local or Atlas)
+- Redis (local or managed)
+
+### Installation
+
+```bash
+git clone <repo-url>
+cd auction-backend
+npm install
+cp .env.example .env   # fill in required values (see below)
+```
+
+### Run
+
+```bash
+# Development (auto-restarts via nodemon)
+npm run dev
+
+# Production
+npm start
+
+# Seed database with sample data
+npm run seed
+```
+
+### Health Checks
+
+```
+GET /health          → { status: "ok", timestamp }
+GET /socket-health   → { socket: "connected", clients: N }
+```
+
+---
+
+
 ## Features
 
-- **JWT Authentication** — access + refresh token rotation stored in secure httpOnly cookies
-- **Auction Lifecycle** — state-machine-enforced transitions: `draft → scheduled → active → ended/sold/cancelled`
 - **Real-Time Bidding** — bids accepted over both REST and Socket.io with identical validation logic
 - **Distributed Locking** — Redis-based optimistic locking prevents race conditions on concurrent bids
 - **Async Job Queue** — Bull + Redis schedules auction close jobs; retries on failure with exponential backoff
+- **Auction Lifecycle** — state-machine-enforced transitions: `draft → scheduled → active → ended/sold/cancelled`
 - **Image Uploads** — Multer handles multipart uploads; Cloudinary stores and serves images
 - **Notification System** — per-user, per-event notifications (outbid, won, auction ended)
 - **Watchlist** — users can watch/unwatch active auctions
@@ -84,7 +123,7 @@ Client (REST / WebSocket)
 │  ├── Bid     │      └──────────────────┘
 │  ├── Order   │               │
 │  └── Notif.  │               ▼
-└──────────────┘      ┌──────────────────┐
+└──────────────┘       ┌──────────────────┐
                        │  Bull Job Queue  │
                        │  closeAuction    │
                        │  notifyWinner    │
@@ -98,10 +137,10 @@ Client (REST / WebSocket)
 draft ──────────────────────────────────────► cancelled
   │                                               ▲
   ▼                                               │
-scheduled ──────────────────────────────────────►┤
+scheduled  ──────────────────────────────────────►┤
   │                                               │
   ▼                                               │
-active ─────────────────────────────────────────►┤
+active  ─────────────────────────────────────────►┤
   │
   ├──► ended ──► sold
   │
@@ -163,44 +202,6 @@ src/
 
 ---
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+
-- MongoDB (local or Atlas)
-- Redis (local or managed)
-
-### Installation
-
-```bash
-git clone <repo-url>
-cd auction-backend
-npm install
-cp .env.example .env   # fill in required values (see below)
-```
-
-### Run
-
-```bash
-# Development (auto-restarts via nodemon)
-npm run dev
-
-# Production
-npm start
-
-# Seed database with sample data
-npm run seed
-```
-
-### Health Checks
-
-```
-GET /health          → { status: "ok", timestamp }
-GET /socket-health   → { socket: "connected", clients: N }
-```
-
----
 
 ## Environment Variables
 
