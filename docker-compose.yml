@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  # MongoDB Database Service
+  mongodb:
+    image: mongo:7.0-alpine
+    container_name: auction_mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-auction_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-secure_password}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-auction_db}
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - auction_network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: mongod --auth
+
+  # Redis Cache & Message Broker Service
+  redis:
+    image: redis:7-alpine
+    container_name: auction_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secure_password}
+    volumes:
+      - redis_data:/data
+    networks:
+      - auction_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secure_password}
+
+  # Node.js Backend Service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: auction_backend
+    restart: unless-stopped
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    environment:
+      # Node Environment
+      NODE_ENV: ${NODE_ENV:-production}
+
+      # Database Configuration
+      MONGODB_URI: mongodb://${MONGO_USER:-auction_user}:${MONGO_PASSWORD:-secure_password}@mongodb:27017/${MONGO_DB:-auction_db}?authSource=admin
+
+      # Redis Configuration
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secure_password}@redis:6379
+
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_key_change_this_in_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+
+      # Server Configuration
+      PORT: 3000
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+
+      # CORS
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+
+      # Rate Limiting
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-500}
+
+      # Cloudinary (Optional)
+      CLOUDINARY_NAME: ${CLOUDINARY_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+
+      # Email Configuration (Optional)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+
+    volumes:
+      - ./src:/app/src
+      - ./node_modules:/app/node_modules
+    networks:
+      - auction_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1/auctions?limit=1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Frontend Service (uncomment if needed)
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: auction_frontend
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - backend
+  #   ports:
+  #     - "${FRONTEND_PORT:-5173}:5173"
+  #   environment:
+  #     VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+  #   networks:
+  #     - auction_network
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  auction_network:
+    driver: bridge
